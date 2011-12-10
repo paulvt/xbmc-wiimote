@@ -1,0 +1,167 @@
+#!/usr/bin/env python
+#
+# xbmc-wiimote - XBMC event client for Wii remotes
+#
+# Copyright © 2011 Paul van Tilburg <paul@luon.net>
+# 
+# XBMC Wiimote Gateway is free software:  you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as published
+# by the Free Software Foundation, either version 3 of the License, or (at
+# your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+import cwiid
+import sys
+from time import *
+from xbmc.xbmcclient import XBMCClient, PacketBUTTON
+from threading import Thread, Event, Timer
+
+### Resettable timer code, from http://code.activestate.com/recipes/577407/,
+### with comments and debug statements removed.
+class TimerReset(Thread):
+    def __init__(self, interval, function, args=[], kwargs={}):
+        Thread.__init__(self)
+        self.interval = interval
+        self.function = function
+        self.args = args
+        self.kwargs = kwargs
+        self.finished = Event()
+        self.resetted = True
+
+    def cancel(self):
+        self.finished.set()
+ 
+    def run(self):
+        while self.resetted:
+            self.resetted = False
+            self.finished.wait(self.interval)
+        if not self.finished.isSet():
+            self.function(*self.args, **self.kwargs)
+        self.finished.set()
+    
+    def reset(self, interval=None):
+        if interval:
+            self.interval = interval
+        self.resetted = True
+        self.finished.set()
+        self.finished.clear()
+### end of included code
+
+# Default settings
+PROGRAM = "XBMC Wiimote Gateway"
+ICON = "/usr/share/pixmaps/xbmc/bluetooth.png"
+WIIMOTE_BTADDR = sys.argv[1]
+WIIMOTE_LED = 0b1001
+WIIMOTE_MAP = "JS0:WiiRemote"
+WIIMOTE_CONVERT = { 1: cwiid.BTN_UP,
+                    2: cwiid.BTN_DOWN,
+                    3: cwiid.BTN_LEFT,
+                    4: cwiid.BTN_RIGHT,
+                    5: cwiid.BTN_A,
+                    6: cwiid.BTN_B,
+                    7: cwiid.BTN_MINUS,
+                    8: cwiid.BTN_HOME,
+                    9: cwiid.BTN_PLUS,
+                   10: cwiid.BTN_1,
+                   11: cwiid.BTN_2}
+
+# Extend XBMCClient with a method to directly send WiiMote button codes.
+def send_wiimote_button(self, code=0, map_name=WIIMOTE_MAP, queue=0, repeat=1):
+    packet = PacketBUTTON(code=int(code), map_name=str(map_name), 
+                          queue=queue, repeat=repeat)
+    packet.send(self.sock, self.addr, self.uid)
+
+XBMCClient.send_wiimote_button = send_wiimote_button
+
+def rumble_signal(wm):
+    wm.rumble = 1
+    for i in range(0, 3):
+        sleep(0.1)
+        wm.rumble = (i % 2)
+
+def convert_msg_to_buttons(mesg):
+    buttons = []
+    for button in WIIMOTE_CONVERT.keys():
+        if mesg & WIIMOTE_CONVERT[button]:
+            buttons.append(button)
+    return buttons
+
+def handle_msg(mesg_list, time):
+    global xbmc, wm, tim
+    for mesg in mesg_list:
+        if mesg[0] == cwiid.MESG_BTN:
+            print("Handling keycode %d" % mesg[1])
+            tim.reset()
+            if (mesg[1] == 0):
+                xbmc.send_wiimote_button(0, repeat=0)    
+            else:
+                # FIXME: How to send combined key presses?
+                for button in convert_msg_to_buttons(mesg[1]):
+                    xbmc.send_wiimote_button(button)
+        elif mesg[0] == cwiid.MESG_ERROR:
+            wm.close()
+            tim.cancel()
+            if (mesg[1] == cwiid.ERROR_DISCONNECT):
+                print("Wiimote disconnect to to power-off")
+                xbmc.send_notification(PROGRAM,  "Wiimote disconnected")
+            elif (mesg[1] == cwiid.ERROR_COMM):
+                print("Wiimote communication error!")
+                xbmc.send_notification(PROGRAM,  "Wiimote communication error!")
+        else:
+            print("Unhandled and ignored message type: %d" % mesg[0])
+
+def timeout():
+    print("Timeout due to inactivity!")
+
+def main():
+    # Create an XBMCClient object and connect.
+    global xbmc, wm, tim
+    xbmc = XBMCClient(PROGRAM, icon_file=ICON)
+    xbmc.connect()
+
+    while(True):
+        # The main loop.
+        try:
+            print("Press 1+2 on the Wiimote with address %s..." % WIIMOTE_BTADDR)
+            wm = cwiid.Wiimote(WIIMOTE_BTADDR, cwiid.FLAG_REPEAT_BTN |
+                                               cwiid.FLAG_MESG_IFC)
+        except RuntimeError as error:
+            print(error)
+            continue
+        # If a Wiimote is found, set the leds, rumble, register the
+        # callback and start the timer.
+        tim = TimerReset(120, timeout)
+        tim.start()
+        wm.led = WIIMOTE_LED
+        wm.rpt_mode = cwiid.RPT_BTN 
+        wm.mesg_callback = handle_msg
+        rumble_signal(wm)
+
+        battperc = 100.0 * wm.state['battery'] / cwiid.BATTERY_MAX
+        print("Wiimote connected (battery: %d%%)" % battperc)
+        xbmc.send_notification(PROGRAM,
+                               "Wiimote connected\n(battery: %d%%)" % battperc)
+        tim.join()
+        # A timeout has occured (due to inactivity), close the connection to
+        # the Wiimote.
+        try:
+            wm.close()
+        except ValueError:
+            # Connection was already closed.
+            pass
+        print("Wiimote disconnected due to timeout")
+        #xbmc.send_notification(PROGRAM, "Wiimote disconnected")
+        sleep(3)
+
+    # Ok we're done, close the connection.
+    xbmc.close()
+
+if __name__=="__main__":
+    main()
