@@ -40,14 +40,14 @@ somewhere that is in the system's/in your path.
 
 Then, run:
 
-  $ xbmc-wiimote <Wii remote bluetooth address>
+    $ xbmc-wiimote <Wii remote bluetooth address>
 
 You should see a notification pop up in XBMC that tells you that the
 XBMC Wiimote Gateway has connected.
 
 If you don't know the bluetooth address of your Wii remote, run
 
-  $ hcitool scan
+    $ hcitool scan
 
 and quickly press 1+2 on the Wii remote to find the address
 
