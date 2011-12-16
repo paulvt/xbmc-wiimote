@@ -19,7 +19,9 @@
 # with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import cwiid
+import os
 import sys
+import getopt
 from time import *
 from xbmc.xbmcclient import XBMCClient, PacketBUTTON
 from threading import Thread, Event, Timer
@@ -58,8 +60,6 @@ class TimerReset(Thread):
 # Default settings
 PROGRAM = "XBMC Wiimote Gateway"
 ICON = "/usr/share/pixmaps/xbmc/bluetooth.png"
-WIIMOTE_BTADDR = sys.argv[1]
-WIIMOTE_LED = 0b1001
 WIIMOTE_MAP = "JS0:WiiRemote"
 WIIMOTE_CONVERT = { 1: cwiid.BTN_UP,
                     2: cwiid.BTN_DOWN,
@@ -118,10 +118,53 @@ def handle_msg(mesg_list, time):
         else:
             print("Unhandled and ignored message type: %d" % mesg[0])
 
-def timeout():
+def timeout_msg():
     print("Timeout due to inactivity!")
 
+def usage():
+    print("Usage: xbmc-wiimote [OPTION]...\n"
+    "XBMC event client that receives input from a Wii remote via bluetooth and\n"
+    "feeds them to XBMC.\n\n"
+    "Available options:\n"
+    "  -b, --bt-address=ADDRESS\t\tBluetooth address Wii remote\n"
+    "  -l, --led-pattern=PATTERN\t\tLed patteren when connected (e.g. 1001)\n"
+    "  -t, --timeout=TIME\t\tAuto-disconnect timeout\n"
+    "  -h, --help\t\t\tDisplay this help and exit\n"
+    "Setting the bluetooth address is mandatory.")
+
 def main():
+    # Define and get the commandline options.
+    progname = os.path.basename(sys.argv[0])
+    try:
+        opts, args = getopt.getopt(sys.argv[1:],
+                            "hb:l:t:",
+                            ["help", "bt-address=", "led-pattern=", "timeout="])
+    except getopt.GetoptError, err:
+        print "%s: %s." % (progname, err)
+        print "Try `%s --help` for more information." % progname
+        sys.exit(2)
+
+    # Option parsing and defaults.
+    led_pattern = 0b1001
+    timeout = 120
+    bt_address = None
+    for opt, arg in opts:
+        if opt in ("-h", "--help"):
+            usage()
+            sys.exit()
+        elif opt in ("-b", "--bt-address"):
+            bt_address = arg
+        elif opt in ("-l", "--led-pattern"):
+            led_pattern = int(arg[::-1], 2)
+        elif opt in ("-t", "--timeout"):
+            timeout = int(arg)
+        else:
+            assert False, "unhandled option: %s" % opt
+    if not bt_address:
+      print "%s: the bluetooth address is not set!" % progname
+      print "Try `%s --help` for more information." % progname
+      sys.exit(3)
+
     # Create an XBMCClient object and connect.
     global xbmc, wm, tim
     xbmc = XBMCClient(PROGRAM, icon_file=ICON)
@@ -130,17 +173,17 @@ def main():
     while(True):
         # The main loop.
         try:
-            print("Press 1+2 on the Wiimote with address %s..." % WIIMOTE_BTADDR)
-            wm = cwiid.Wiimote(WIIMOTE_BTADDR, cwiid.FLAG_REPEAT_BTN |
-                                               cwiid.FLAG_MESG_IFC)
+            print("Press 1+2 on the Wiimote with address %s..." % bt_address)
+            wm = cwiid.Wiimote(bt_address, cwiid.FLAG_REPEAT_BTN |
+                                           cwiid.FLAG_MESG_IFC)
         except RuntimeError as error:
             print(error)
             continue
         # If a Wiimote is found, set the leds, rumble, register the
         # callback and start the timer.
-        tim = TimerReset(120, timeout)
+        tim = TimerReset(timeout, timeout_msg)
         tim.start()
-        wm.led = WIIMOTE_LED
+        wm.led = led_pattern
         wm.rpt_mode = cwiid.RPT_BTN 
         wm.mesg_callback = handle_msg
         rumble_signal(wm)
