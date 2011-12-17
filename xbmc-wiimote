@@ -126,8 +126,8 @@ def usage():
     "XBMC event client that receives input from a Wii remote via bluetooth and\n"
     "feeds them to XBMC.\n\n"
     "Available options:\n"
-    "  -b, --bt-address=ADDRESS\t\tBluetooth address Wii remote\n"
-    "  -l, --led-pattern=PATTERN\t\tLed patteren when connected (e.g. 1001)\n"
+    "  -b, --bt-address=ADDRESS\tBluetooth address Wii remote\n"
+    "  -l, --led-pattern=PATTERN\tLed patteren when connected (e.g. 1001)\n"
     "  -t, --timeout=TIME\t\tAuto-disconnect timeout\n"
     "  -h, --help\t\t\tDisplay this help and exit\n"
     "Setting the bluetooth address is mandatory.")
