@@ -202,7 +202,7 @@ def main():
         battperc = 100.0 * wm.state['battery'] / cwiid.BATTERY_MAX
         print("Wiimote connected (battery: %d%%)" % battperc)
         xbmc.send_notification(PROGRAM,
-                               "Wiimote connected\n(battery: %d%%)" % battperc)
+                               "Wiimote connected (battery: %d%%)" % battperc)
         tim.join()
         # A timeout has occured (due to inactivity), close the connection to
         # the Wiimote.
