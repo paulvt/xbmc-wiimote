@@ -57,6 +57,13 @@ class TimerReset(Thread):
         self.finished.clear()
 ### end of included code
 
+class Pinger(Thread):
+    def run(self):
+        global xbmc
+        while(True):
+            sleep(55)
+            xbmc.ping()
+
 # Default settings
 PROGRAM = "XBMC Wiimote Gateway"
 ICON = "/usr/share/pixmaps/xbmc/bluetooth.png"
@@ -169,6 +176,10 @@ def main():
     global xbmc, wm, tim
     xbmc = XBMCClient(PROGRAM, icon_file=ICON)
     xbmc.connect()
+
+    # Start the pinger thread to frequently let XBMC know we are still here.
+    ping = Pinger()
+    ping.start()
 
     while(True):
         # The main loop.
