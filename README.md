@@ -1,8 +1,13 @@
-XBMC Wiimote Gateway
-====================
+Improved XBMC Wiimote Gateway
+=============================
 
 An XBMC event client that receives input from a Wii remote via bluetooth
 and feeds them to XBMC.
+
+While XBMC comes with a Wii remote event client already (`xbmc-wiiremote`),
+this project aims to improve upon it by adding some additional features
+such as automatic disconnect, by having better error handling and to be
+more hackable by using the Python bindings.
 
 Features
 --------
@@ -40,7 +45,7 @@ somewhere that is in the system's/in your path.
 
 Then, run:
 
-    $ xbmc-wiimote <Wii remote bluetooth address>
+    $ xbmc-wiimote -b <Wii remote bluetooth address>
 
 You should see a notification pop up in XBMC that tells you that the
 XBMC Wiimote Gateway has connected.
