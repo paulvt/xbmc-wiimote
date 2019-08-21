@@ -67,7 +67,7 @@ class Pinger(Thread):
 # Default settings
 PROGRAM = "XBMC Wiimote Gateway"
 ICON = "/usr/share/pixmaps/xbmc/bluetooth.png"
-WIIMOTE_MAP = "JS0:WiiRemote"
+WIIMOTE_MAP = "CC:WiiRemote"
 WIIMOTE_CONVERT = { 1: cwiid.BTN_UP,
                     2: cwiid.BTN_DOWN,
                     3: cwiid.BTN_LEFT,
